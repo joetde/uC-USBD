@@ -196,6 +196,25 @@
 
 /*
 *********************************************************************************************************
+*                                MANAGEMENT ELEMENTS NOTIFICATIONS DEFINES
+*
+* Note(s) : (1) Management elements notifications are defined in section 6.3 table 20 from the
+*               CDC specification revision 1.2.
+*********************************************************************************************************
+*/
+
+#define  USBD_CDC_NOTIFICATION_NET_CONN                 0x00u
+#define  USBD_CDC_NOTIFICATION_RESP_AVAIL               0x01u
+#define  USBD_CDC_NOTIFICATION_AUX_JACK_HOOK_STATE      0x08u
+#define  USBD_CDC_NOTIFICATION_RING_DETECT              0x09u
+#define  USBD_CDC_NOTIFICATION_SERIAL_STATE             0x20u
+#define  USBD_CDC_NOTIFICATION_CALL_STATE_CHNG          0x28u
+#define  USBD_CDC_NOTIFICATION_LINE_STATE_CHNG          0x29u
+#define  USBD_CDC_NOTIFICATION_CONN_SPEED_CHNG          0x2Au
+
+
+/*
+*********************************************************************************************************
 *                               CDC FUNCTIONAL DESCRIPTOR TYPE DEFINES
 *
 * Note(s) : (1) Functional descriptors types are defined in table 12 from the CDC specification revision
@@ -251,7 +270,7 @@
 
 /*
 *********************************************************************************************************
-*                                      CDC NOTIFIACTION DEFINES
+*                                      CDC NOTIFICATION DEFINES
 *********************************************************************************************************
 */
 
@@ -314,58 +333,75 @@ typedef  const  struct  usbd_cdc_subclass_drv {
 *********************************************************************************************************
 */
 
-void         USBD_CDC_Init      (USBD_ERR               *p_err);
+void         USBD_CDC_Init        (USBD_ERR               *p_err);
 
-CPU_INT08U   USBD_CDC_Add       (CPU_INT08U              subclass,
-                                 USBD_CDC_SUBCLASS_DRV  *p_subclass_drv,
-                                 void                   *p_subclass_arg,
-                                 CPU_INT08U              protocol,
-                                 CPU_BOOLEAN             notify_en,
-                                 CPU_INT16U              notify_interval,
-                                 USBD_ERR               *p_err);
+CPU_INT08U   USBD_CDC_Add         (CPU_INT08U              subclass,
+                                   USBD_CDC_SUBCLASS_DRV  *p_subclass_drv,
+                                   void                   *p_subclass_arg,
+                                   CPU_INT08U              protocol,
+                                   CPU_BOOLEAN             notify_en,
+                                   CPU_INT16U              notify_interval,
+                                   USBD_ERR               *p_err);
 
-CPU_BOOLEAN  USBD_CDC_CfgAdd    (CPU_INT08U              class_nbr,
-                                 CPU_INT08U              dev_nbr,
-                                 CPU_INT08U              cfg_nbr,
-                                 USBD_ERR               *p_err);
+void         USBD_CDC_SetAltIFEn  (CPU_INT08U              class_nbr,
+                                   CPU_BOOLEAN             alt_if_en,
+                                   USBD_ERR               *p_err);
 
-CPU_BOOLEAN  USBD_CDC_IsConn    (CPU_INT08U              class_nbr);
+void         USBD_CDC_SetEndOfTx  (CPU_INT08U              class_nbr,
+                                   CPU_BOOLEAN             end_tx_en,
+                                   USBD_ERR               *p_err);
+
+CPU_BOOLEAN  USBD_CDC_CfgAdd      (CPU_INT08U              class_nbr,
+                                   CPU_INT08U              dev_nbr,
+                                   CPU_INT08U              cfg_nbr,
+                                   USBD_ERR               *p_err);
+
+CPU_BOOLEAN  USBD_CDC_IsConn      (CPU_INT08U              class_nbr);
 
                                                                 /* ---------- DATA INTERFACE CLASS FUNCTIONS ---------- */
-CPU_INT08U   USBD_CDC_DataIF_Add(CPU_INT08U              class_nbr,
-                                 CPU_BOOLEAN             isoc_en,
-                                 CPU_INT08U              protocol,
-                                 USBD_ERR               *p_err);
+CPU_INT08U   USBD_CDC_DataIF_Add  (CPU_INT08U              class_nbr,
+                                   CPU_BOOLEAN             isoc_en,
+                                   CPU_INT08U              protocol,
+                                   USBD_ERR               *p_err);
 
-CPU_INT32U   USBD_CDC_DataRx    (CPU_INT08U              class_nbr,
-                                 CPU_INT08U              data_if_nbr,
-                                 CPU_INT08U             *p_buf,
-                                 CPU_INT32U              buf_len,
-                                 CPU_INT16U              timeout,
-                                 USBD_ERR               *p_err);
+CPU_INT32U   USBD_CDC_DataRx      (CPU_INT08U              class_nbr,
+                                   CPU_INT08U              data_if_nbr,
+                                   CPU_INT08U             *p_buf,
+                                   CPU_INT32U              buf_len,
+                                   CPU_INT16U              timeout,
+                                   USBD_ERR               *p_err);
 
-CPU_INT32U   USBD_CDC_DataTx    (CPU_INT08U              class_nbr,
-                                 CPU_INT08U              data_if_nbr,
-                                 CPU_INT08U             *p_buf,
-                                 CPU_INT32U              buf_len,
-                                 CPU_INT16U              timeout,
-                                 USBD_ERR               *p_err);
+void         USBD_CDC_DataRxAsync (CPU_INT08U              class_nbr,
+                                   CPU_INT08U              data_if_nbr,
+                                   CPU_INT08U             *p_buf,
+                                   CPU_INT32U              buf_len,
+                                   USBD_ASYNC_FNCT         async_fnct,
+                                   void                   *p_async_arg,
+                                   USBD_ERR               *p_err);
+
+
+CPU_INT32U   USBD_CDC_DataTx      (CPU_INT08U              class_nbr,
+                                   CPU_INT08U              data_if_nbr,
+                                   CPU_INT08U             *p_buf,
+                                   CPU_INT32U              buf_len,
+                                   CPU_INT16U              timeout,
+                                   USBD_ERR               *p_err);
 
                                                                 /* ------------- NOTIFICATION FUNCTIONS -------------- */
-CPU_BOOLEAN  USBD_CDC_Notify    (CPU_INT08U              class_nbr,
-                                 CPU_INT08U              notification,
-                                 CPU_INT16U              value,
-                                 CPU_INT08U             *p_buf,
-                                 CPU_INT16U              data_len,
-                                 USBD_ERR               *p_err);
+CPU_BOOLEAN  USBD_CDC_Notify      (CPU_INT08U              class_nbr,
+                                   CPU_INT08U              notification,
+                                   CPU_INT16U              value,
+                                   CPU_INT08U             *p_buf,
+                                   CPU_INT16U              data_len,
+                                   USBD_ERR               *p_err);
 
 #if 0
-void         USBD_CDC_GrpCreate (CPU_INT08               class_nbr,
-                                 USBD_ERR               *p_err);
+void         USBD_CDC_GrpCreate   (CPU_INT08               class_nbr,
+                                   USBD_ERR               *p_err);
 
-void         USBD_CDC_GrpAdd    (CPU_INT08U              class_nbr,
-                                 CPU_INT08U              nbr_slave,
-                                 USBD_ERR               *p_err);
+void         USBD_CDC_GrpAdd      (CPU_INT08U              class_nbr,
+                                   CPU_INT08U              nbr_slave,
+                                   USBD_ERR               *p_err);
 #endif
 
 
