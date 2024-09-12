@@ -797,12 +797,12 @@ CPU_BOOLEAN  USBD_CDC_CfgAdd (CPU_INT08U   class_nbr,
 
                                                                 /* Add alternate IF if needed.                          */
             if (p_ctrl->AltIFEn == DEF_TRUE) {
-                alt_if_nbr = USBD_IF_AltAdd(dev_nbr,
-                                            cfg_nbr,
-                                            if_nbr,
-                                            (void *) p_comm,
-                                            (void *) 0u,
-                                            p_err);
+                alt_if_nbr = USBD_IF_AltAdd(        dev_nbr,
+                                                    cfg_nbr,
+                                                    if_nbr,
+                                            (void *)p_comm,
+                                                    "Alternate CDC Data Interface",
+                                                    p_err);
                 if (*p_err != USBD_ERR_NONE) {
                     return (DEF_NO);
                 }
@@ -1214,12 +1214,12 @@ void  USBD_CDC_DataRxAsync (CPU_INT08U        class_nbr,
 
     if (p_data_if->IsocEn == DEF_DISABLED) {
         USBD_BulkRxAsync(p_comm->DevNbr,
-                               p_data_ep->DataOut,
-                               p_buf,
-                               buf_len,
-                               async_fnct,
-                               p_async_arg,
-                               p_err);
+                         p_data_ep->DataOut,
+                         p_buf,
+                         buf_len,
+                         async_fnct,
+                         p_async_arg,
+                         p_err);
     } else {
         *p_err = USBD_ERR_DEV_UNAVAIL_FEAT;                     /* $$$$ Isoc transfer not supported.                    */
          return;
