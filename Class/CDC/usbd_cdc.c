@@ -196,6 +196,8 @@ struct  usbd_cdc_ctrl {                                         /* ----------- C
     USBD_CDC_STATE          State;                              /* CDC state.                                           */
     CPU_BOOLEAN             NotifyEn;                           /* CDC mgmt element notifications enable.               */
     CPU_INT16U              NotifyInterval;                     /* CDC mgmt element notifications interval.             */
+    CPU_BOOLEAN             AltIFEn;                            /* Enable data transfers on alternate interface         */
+    CPU_BOOLEAN             EndOfTx;                            /* Enable end of transfer on tx                         */
     CPU_INT08U              DataIF_Nbr;                         /* Number of data IFs.                                  */
     USBD_CDC_DATA_IF       *DataIF_HeadPtr;                     /* Data IFs list head ptr. (see note #1b)               */
     USBD_CDC_DATA_IF       *DataIF_TailPtr;                     /* Data IFs list tail ptr.                              */
@@ -504,12 +506,110 @@ CPU_INT08U  USBD_CDC_Add (CPU_INT08U              subclass,
     p_ctrl->SubClassProtocol = protocol;
     p_ctrl->NotifyEn         = notify_en;
     p_ctrl->NotifyInterval   = notify_interval;
+    p_ctrl->AltIFEn          = DEF_FALSE;
+    p_ctrl->EndOfTx          = DEF_TRUE;
     p_ctrl->SubClassDrvPtr   = p_subclass_drv;
     p_ctrl->SubClassArg      = p_subclass_arg;
 
    *p_err = USBD_ERR_NONE;
 
     return (cdc_nbr);
+}
+
+
+/*
+*********************************************************************************************************
+*                                           USBD_CDC_SetAltIFEn()
+*
+* Description : Enable or disable alternate interface for data transfers.
+*
+* Argument(s) : class_nbr   Class instance number.
+*
+*               alt_if_en   Alternate interface enabled :
+*
+*                               DEF_ENABLED   Enable  alternate interface for data transfers.
+*                               DEF_DISABLED  Disable alternate interface for data transfers.
+*
+*               p_err       Pointer to variable that will receive the return error code from this function :
+*
+*                               USBD_ERR_NONE               CDC class instance successfully added.
+*                               USBD_ERR_CLASS_INVALID_NBR  Invalid argument(s) passed to 'class_nbr'.
+*
+* Return(s)   : None.
+*
+* Note(s)     : None.
+*********************************************************************************************************
+*/
+
+void  USBD_CDC_SetAltIFEn (CPU_INT08U    class_nbr,
+                           CPU_BOOLEAN   alt_if_en,
+                           USBD_ERR     *p_err)
+{
+    USBD_CDC_CTRL  *p_ctrl;
+
+
+#if (USBD_CFG_ERR_ARG_CHK_EXT_EN == DEF_ENABLED)                /* ---------------- VALIDATE ARGUMENTS ---------------- */
+    if (p_err == (USBD_ERR *)0) {                               /* Validate error ptr.                                  */
+        CPU_SW_EXCEPTION(;);
+    }
+#endif
+
+    if (class_nbr >= USBD_CDC_CtrlNbrNext) {                    /* Check CDC class instance nbr.                        */
+       *p_err = USBD_ERR_CLASS_INVALID_NBR;
+        return;
+    }
+
+    p_ctrl = &USBD_CDC_CtrlTbl[class_nbr];
+
+    p_ctrl->AltIFEn = alt_if_en;
+}
+
+
+/*
+*********************************************************************************************************
+*                                           USBD_CDC_SetEndOfTx()
+*
+* Description : Enable or disable end of transfer on tx.
+*
+* Argument(s) : class_nbr   Class instance number.
+*
+*               end_tx_en   End of transfer enabled :
+*
+*                               DEF_ENABLED   Enable end of transfer on tx (will send ZLP on tx).
+*                               DEF_DISABLED  Disable end of transfer on tx.
+*
+*               p_err       Pointer to variable that will receive the return error code from this function :
+*
+*                               USBD_ERR_NONE               CDC class instance successfully added.
+*                               USBD_ERR_CLASS_INVALID_NBR  Invalid argument(s) passed to 'class_nbr'.
+*
+* Return(s)   : None.
+*
+* Note(s)     : None.
+*********************************************************************************************************
+*/
+
+void  USBD_CDC_SetEndOfTx (CPU_INT08U    class_nbr,
+                           CPU_BOOLEAN   end_tx_en,
+                           USBD_ERR     *p_err)
+{
+    USBD_CDC_CTRL  *p_ctrl;
+
+
+#if (USBD_CFG_ERR_ARG_CHK_EXT_EN == DEF_ENABLED)                /* ---------------- VALIDATE ARGUMENTS ---------------- */
+    if (p_err == (USBD_ERR *)0) {                               /* Validate error ptr.                                  */
+        CPU_SW_EXCEPTION(;);
+    }
+#endif
+
+    if (class_nbr >= USBD_CDC_CtrlNbrNext) {                    /* Check CDC class instance nbr.                        */
+       *p_err = USBD_ERR_CLASS_INVALID_NBR;
+        return;
+    }
+
+    p_ctrl = &USBD_CDC_CtrlTbl[class_nbr];
+
+    p_ctrl->EndOfTx = end_tx_en;
 }
 
 
@@ -584,6 +684,7 @@ CPU_BOOLEAN  USBD_CDC_CfgAdd (CPU_INT08U   class_nbr,
     USBD_CDC_DATA_IF_EP  *p_data_ep;
     USBD_CDC_DATA_IF     *p_data_if;
     CPU_INT08U            if_nbr;
+    CPU_INT08U            alt_if_nbr;
     CPU_INT08U            ep_addr;
     CPU_INT16U            comm_nbr;
     CPU_INT16U            data_if_nbr_cur = 0u;
@@ -694,12 +795,27 @@ CPU_BOOLEAN  USBD_CDC_CfgAdd (CPU_INT08U   class_nbr,
 
             p_data_if->IF_Nbr = if_nbr;
 
+                                                                /* Add alternate IF if needed.                          */
+            if (p_ctrl->AltIFEn == DEF_TRUE) {
+                alt_if_nbr = USBD_IF_AltAdd(        dev_nbr,
+                                                    cfg_nbr,
+                                                    if_nbr,
+                                            (void *)p_comm,
+                                                    "Alternate CDC Data Interface",
+                                                    p_err);
+                if (*p_err != USBD_ERR_NONE) {
+                    return (DEF_NO);
+                }
+            } else {
+                alt_if_nbr = 0u;
+            }
+
             if (p_data_if->IsocEn == DEF_DISABLED) {
                                                                 /* Add Bulk IN EP.                                      */
                 ep_addr = USBD_BulkAdd(dev_nbr,
                                        cfg_nbr,
                                        if_nbr,
-                                       0u,
+                                       alt_if_nbr,
                                        DEF_YES,
                                        0u,
                                        p_err);
@@ -712,7 +828,7 @@ CPU_BOOLEAN  USBD_CDC_CfgAdd (CPU_INT08U   class_nbr,
                 ep_addr = USBD_BulkAdd(dev_nbr,
                                        cfg_nbr,
                                        if_nbr,
-                                       0u,
+                                       alt_if_nbr,
                                        DEF_NO,
                                        0u,
                                        p_err);
@@ -1016,6 +1132,103 @@ CPU_INT32U  USBD_CDC_DataRx (CPU_INT08U   class_nbr,
 
 /*
 *********************************************************************************************************
+*                                          USBD_CDC_DataRxAsync()
+*
+* Description : Receive data on CDC data interface asynchronously.
+*
+* Argument(s) : class_nbr       Class instance number.
+*
+*               data_if_nbr     CDC data interface number.
+*
+*               p_buf           Pointer to destination buffer to receive data.
+*
+*               buf_len         Number of octets to receive.
+*
+*               async_fnct      Pointer to function that will be called when the transfer completes.
+*
+*               p_async_arg     Pointer to argument that will be passed to the async_fnct.
+*
+*               p_err           Pointer to variable that will receive return error code from this function :
+*
+*                                   USBD_ERR_NONE                   Callback successfully registered.
+*                                   USBD_ERR_INVALID_ARG            Invalid argument(s) passed to 'class_nbr'/
+*                                                                   'data_if_nbr'.
+*                                   USBD_ERR_INVALID_CLASS_STATE    Invalid subclass state.
+*
+*                                   - RETURNED BY USBD_BulkRxAsync() -
+*                                   See USBD_BulkRxAsync() for additional return error codes.
+*
+* Return(s)   : none.
+*
+* Note(s)     : none.
+*********************************************************************************************************
+*/
+
+void  USBD_CDC_DataRxAsync (CPU_INT08U        class_nbr,
+                            CPU_INT08U        data_if_nbr,
+                            CPU_INT08U       *p_buf,
+                            CPU_INT32U        buf_len,
+                            USBD_ASYNC_FNCT   async_fnct,
+                            void             *p_async_arg,
+                            USBD_ERR         *p_err)
+{
+    USBD_CDC_CTRL        *p_ctrl;
+    USBD_CDC_COMM        *p_comm;
+    USBD_CDC_DATA_IF     *p_data_if;
+    USBD_CDC_DATA_IF_EP  *p_data_ep;
+    CPU_INT16U            data_if_ix;
+
+
+#if (USBD_CFG_ERR_ARG_CHK_EXT_EN == DEF_ENABLED)                /* ---------------- VALIDATE ARGUMENTS ---------------- */
+    if (p_err == (USBD_ERR *)0) {                               /* Validate error ptr.                                  */
+        CPU_SW_EXCEPTION();
+    }
+#endif
+
+    if (class_nbr >= USBD_CDC_CtrlNbrNext) {                    /* Check CDC class instance nbr.                        */
+       *p_err = USBD_ERR_CLASS_INVALID_NBR;
+        return;
+    }
+
+    p_ctrl = &USBD_CDC_CtrlTbl[class_nbr];
+
+    if (p_ctrl->State != USBD_CDC_STATE_CFG) {                  /* Transfers are only valid in cfg state.               */
+       *p_err = USBD_ERR_INVALID_CLASS_STATE;
+        return;
+    }
+
+    if (data_if_nbr >= p_ctrl->DataIF_Nbr) {                    /* Check 'data_if_nbr' is valid.                        */
+       *p_err = USBD_ERR_INVALID_ARG;
+        return;
+    }
+
+    p_comm    = p_ctrl->CommPtr;
+    p_data_if = p_ctrl->DataIF_HeadPtr;
+                                                                /* Find data IF struct.                                 */
+    for (data_if_ix = 0u; data_if_ix < data_if_nbr; data_if_ix++) {
+        p_data_if = p_data_if->NextPtr;
+    }
+
+    data_if_ix =  p_comm->DataIF_EP_Ix + data_if_nbr;
+    p_data_ep  = &USBD_CDC_DataIF_EP_Tbl[data_if_ix];
+
+    if (p_data_if->IsocEn == DEF_DISABLED) {
+        USBD_BulkRxAsync(p_comm->DevNbr,
+                         p_data_ep->DataOut,
+                         p_buf,
+                         buf_len,
+                         async_fnct,
+                         p_async_arg,
+                         p_err);
+    } else {
+        *p_err = USBD_ERR_DEV_UNAVAIL_FEAT;                     /* $$$$ Isoc transfer not supported.                    */
+         return;
+    }
+}
+
+
+/*
+*********************************************************************************************************
 *                                          USBD_CDC_DataTx()
 *
 * Description : Send data on CDC data interface.
@@ -1121,7 +1334,7 @@ CPU_INT32U  USBD_CDC_DataTx (CPU_INT08U   class_nbr,
                                p_buf,
                                buf_len,
                                timeout,
-                               DEF_YES,
+                               p_ctrl->EndOfTx,
                                p_err);
     } else {
         *p_err = USBD_ERR_DEV_UNAVAIL_FEAT;                     /* $$$$ Isoc transfer not supported.                    */
