@@ -83,6 +83,10 @@
 #define  APP_CFG_USBD_CDC_SERIAL_TEST_EN        DEF_DISABLED
 #endif
 
+#ifndef  APP_CFG_USBD_CDC_ECM_EN
+#define  APP_CFG_USBD_CDC_ECM_EN                DEF_DISABLED
+#endif
+
 #ifndef  APP_CFG_USBD_CDC_EEM_EN
 #define  APP_CFG_USBD_CDC_EEM_EN                DEF_DISABLED
 #endif
@@ -196,6 +200,12 @@ CPU_BOOLEAN  App_USBD_CDC_Init    (CPU_INT08U  dev_nbr,
                                    CPU_INT08U  cfg_fs);
 #endif
 
+#if (APP_CFG_USBD_CDC_ECM_EN == DEF_ENABLED)
+USBD_ERR  App_USBD_CDC_ECM_Init   (CPU_INT08U  dev_nbr,
+                                   CPU_INT08U  cfg_hs,
+                                   CPU_INT08U  cfg_fs);
+#endif
+
 #if (APP_CFG_USBD_CDC_EEM_EN == DEF_ENABLED)
 CPU_BOOLEAN  App_USBD_CDC_EEM_Init(CPU_INT08U  dev_nbr,
                                    CPU_INT08U  cfg_hs,
@@ -279,6 +289,19 @@ CPU_BOOLEAN  App_USBD_Audio_Init  (CPU_INT08U  dev_nbr,
 #error  "                              [MUST be > 0u ]                           "
 #endif
 
+#endif
+
+
+/*
+*********************************************************************************************************
+*                                         CDC-ECM CLASS CHECK
+*********************************************************************************************************
+*/
+
+#if    ((APP_CFG_USBD_CDC_ECM_EN != DEF_ENABLED) && \
+        (APP_CFG_USBD_CDC_ECM_EN != DEF_DISABLED))
+#error  "APP_CFG_USBD_CDC_ECM_EN              illegally #defined in 'app_cfg.h'  "
+#error  "                              [MUST be DEF_ENABLED or DEF_DISABLED]     "
 #endif
 
 
